@@ -76,12 +76,12 @@ class RecognitionRNN(nn.Module):
 
 class Decoder(nn.Module):
 
-    def __init__(self, time_points, latent_dim=4, obs_dim=2, nhidden=20):
+    def __init__(self, time_points, section, latent_dim=4, obs_dim=2, nhidden=20):
         super(Decoder, self).__init__()
         self.activation = nn.ELU(inplace=True)
         self.fc1 = nn.Linear(latent_dim, nhidden)
         self.fc2 = nn.Linear(nhidden, obs_dim)
-
+        self.section = section
         self.deconv_a = nn.ConvTranspose1d(time_points, time_points, kernel_size=16, stride=1, padding=7)
         self.deconv_b = nn.ConvTranspose1d(time_points, time_points, kernel_size=16, stride=2, padding=7)
         self.deconv_out = nn.Tanh()
@@ -92,6 +92,6 @@ class Decoder(nn.Module):
 
         Deconv_a = self.deconv_a(Fc2)
         Deconv_b = self.deconv_b(Deconv_a)
-        out = self.deconv_out(Deconv_b)*10
+        out = self.deconv_out(Deconv_b) * self.section
 
         return out

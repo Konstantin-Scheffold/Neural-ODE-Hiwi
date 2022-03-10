@@ -122,39 +122,26 @@ def get_LFR(data, time_points, event_type, resolution_LFR=5000, sigma_cut_off=5,
 
 
 
-def get_data(name, load, resolution_LFR, mode, number_units, sample_resolution):
+def get_data(name, load, resolution_LFR, mode, obs_dim):
 
     if mode == 'Test_data':
         orig_ts = np.linspace(0, 1, num=resolution_LFR)
-        samp_ts = orig_ts[::int(resolution_LFR/sample_resolution)]
-
         orig_trajs = np.sin(orig_ts * np.pi * 8)
-        noise_trajs = orig_trajs[::int(resolution_LFR/sample_resolution)]
-
         orig_trajs = orig_trajs.reshape(1, np.size(orig_trajs), 1)
-        noise_trajs = noise_trajs.reshape(1, np.size(noise_trajs), 1)
 
-        return orig_trajs, noise_trajs, orig_ts, samp_ts
-
-
-
-    if resolution_LFR < sample_resolution:
-        raise ValueError('The resolution must be smaller than the sample size')
+        return orig_trajs, orig_ts
 
     # search for existing data
     found_files = 0
     Question = ''
 
     for root, dir, files in os.walk('Spike Data/Storage/Train_data'):
-        if 'orig_trajs_' + name + '.npy' in files:
+        if 'Trajectories_' + name + '_{}'.format(resolution_LFR) + '.npy' in files:
             found_files += 1
-        if 'noise_trajs_' + name + '.npy' in files:
-                found_files += 1
-        if 'orig_ts_' + name + '.npy' in files:
-                found_files += 1
-        if 'samp_ts_' + name + '.npy' in files:
-                found_files += 1
-    if found_files == 4:
+        if 'time_series_' + name + '_{}'.format(resolution_LFR) + '.npy' in files:
+            found_files += 1
+
+    if found_files == 2:
         found_files = True
     else:
         found_files = False
@@ -162,10 +149,8 @@ def get_data(name, load, resolution_LFR, mode, number_units, sample_resolution):
 
     if load:
         if found_files:
-            orig_trajs = np.load('Spike Data/Storage/Train_data/orig_trajs_' + name + '.npy')
-            noise_trajs = np.load('Spike Data/Storage/Train_data/noise_trajs_' + name + '.npy')
-            orig_ts = np.load('Spike Data/Storage/Train_data/orig_ts_' + name + '.npy')
-            samp_ts = np.load('Spike Data/Storage/Train_data/samp_ts_' + name + '.npy')
+            orig_trajs = np.load('Spike Data/Storage/Train_data/Trajectories_' + name + '_{}'.format(resolution_LFR) + '.npy')
+            orig_ts = np.load('Spike Data/Storage/Train_data/time_series_' + name + '_{}'.format(resolution_LFR) + '.npy')
         else:
             print('Could not find data with the trial name:' + name)
             Question = input('Do you want to generate new data? y/n')
@@ -197,28 +182,13 @@ def get_data(name, load, resolution_LFR, mode, number_units, sample_resolution):
 
         # set time points in the intervall [0, 1] to avoid few number resolution for big floats
         orig_ts = np.linspace(0, 1, num=new_resolution)
-        samp_ts = orig_ts[::int(new_resolution/sample_resolution)]
-        samp_ts = samp_ts
-
-        orig_trajs = LFR[:number_units, :]
-        noise_trajs = LFR[:number_units, ::int(new_resolution/sample_resolution)]
-        noise_trajs = noise_trajs + np.random.random(len(noise_trajs)) * 0.3
-
+        orig_trajs = LFR[:obs_dim, :]
         orig_trajs = orig_trajs.reshape(1, np.size(orig_trajs), 1)
-        noise_trajs = noise_trajs.reshape(1, np.size(noise_trajs), 1)
 
-        np.save('Spike Data/Storage/Train_data/orig_trajs_' + name, orig_trajs)
-        np.save('Spike Data/Storage/Train_data/noise_trajs_' + name, noise_trajs)
-        np.save('Spike Data/Storage/Train_data/orig_ts_' + name, orig_ts)
-        np.save('Spike Data/Storage/Train_data/samp_ts_' + name, samp_ts)
+        np.save('Spike Data/Storage/Train_data/Trajectories_' + name + '_{}'.format(resolution_LFR), orig_trajs)
+        np.save('Spike Data/Storage/Train_data/time_series_' + name + '_{}'.format(resolution_LFR), orig_ts)
 
-    return orig_trajs, noise_trajs, orig_ts, samp_ts
-
-
-
-
-
-
+    return orig_trajs, orig_ts
 
 
 if __name__ == '__main__':
