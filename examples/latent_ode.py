@@ -15,7 +15,7 @@ import torch.nn.functional as F
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--adjoint', type=eval, default=False)
-parser.add_argument('--visualize', type=eval, default=False)
+parser.add_argument('--visualize', type=eval, default=True)
 parser.add_argument('--niters', type=int, default=2000)
 parser.add_argument('--lr', type=float, default=0.01)
 parser.add_argument('--gpu', type=int, default=0)
@@ -199,13 +199,13 @@ if __name__ == '__main__':
     nhidden = 20
     rnn_nhidden = 25
     obs_dim = 2
-    nspiral = 1000
+    nspiral = 1
     start = 0.
     stop = 6 * np.pi
     noise_std = .3
     a = 0.
     b = .3
-    ntotal = 1000
+    ntotal = 500
     nsample = 100
     device = torch.device('cuda:' + str(args.gpu)
                           if torch.cuda.is_available() else 'cpu')

@@ -176,4 +176,5 @@ if __name__ == "__main__":
     plt.gca().xaxis.set_ticks_position('bottom')
 
     plt.tight_layout()
+    plt.show()
     plt.savefig("bouncing_ball.png")
