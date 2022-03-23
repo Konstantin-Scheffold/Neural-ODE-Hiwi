@@ -135,7 +135,7 @@ def get_data(name, load, resolution_LFR, mode, obs_dim):
     found_files = 0
     Question = ''
 
-    for root, dir, files in os.walk('Spike Data/Storage/Train_data'):
+    for root, dir, files in os.walk('Storage/Train_data/'):
         if 'Trajectories_' + name + '_{}'.format(resolution_LFR) + '.npy' in files:
             found_files += 1
         if 'time_series_' + name + '_{}'.format(resolution_LFR) + '.npy' in files:
@@ -146,11 +146,12 @@ def get_data(name, load, resolution_LFR, mode, obs_dim):
     else:
         found_files = False
 
-
+    print(os.path.abspath("."))
+    print('Test')
     if load:
         if found_files:
-            orig_trajs = np.load('Spike Data/Storage/Train_data/Trajectories_' + name + '_{}'.format(resolution_LFR) + '.npy')
-            orig_ts = np.load('Spike Data/Storage/Train_data/time_series_' + name + '_{}'.format(resolution_LFR) + '.npy')
+            orig_trajs = np.load('Storage/Train_data/Trajectories_' + name + '_{}'.format(resolution_LFR) + '.npy')
+            orig_ts = np.load('Storage/Train_data/time_series_' + name + '_{}'.format(resolution_LFR) + '.npy')
         else:
             print('Could not find data with the trial name:' + name)
             Question = input('Do you want to generate new data? y/n')
@@ -161,7 +162,7 @@ def get_data(name, load, resolution_LFR, mode, obs_dim):
 
     # generate data
     if not load or Question=='y':
-        data = sio.loadmat('Data/M533_200219_1_37units.mat')
+        data = sio.loadmat(r'C:\Users\Konra\PycharmProjects\Neural_ODE\Data\M533_200219_1_37units.mat')
         Spike_trains = np.asarray(np.nan_to_num(data['STMtx']))
         Event_times = data['EvtT']
         Event_names = data['EvtL']
@@ -185,8 +186,8 @@ def get_data(name, load, resolution_LFR, mode, obs_dim):
         orig_trajs = LFR[:obs_dim, :]
         orig_trajs = orig_trajs.reshape(1, np.size(orig_trajs), 1)
 
-        np.save('Spike Data/Storage/Train_data/Trajectories_' + name + '_{}'.format(resolution_LFR), orig_trajs)
-        np.save('Spike Data/Storage/Train_data/time_series_' + name + '_{}'.format(resolution_LFR), orig_ts)
+        np.save('Storage/Train_data/Trajectories_' + name + '_{}'.format(resolution_LFR), orig_trajs)
+        np.save('Storage/Train_data/time_series_' + name + '_{}'.format(resolution_LFR), orig_ts)
 
     return orig_trajs, orig_ts
 

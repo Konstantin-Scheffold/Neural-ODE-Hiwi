@@ -6,17 +6,28 @@ from model import *
 from Get_Data import *
 
 from torch.optim.lr_scheduler import StepLR
+'''
+Tasks:
+ - why has the decoder output the shape [natch size, time points, latent dim]
+ - exact understanding of the inbuild loss
+ - using several Units
+ - using batches
+ - scheiß laden von daten reparieren
+ - improve saving directory detection
+ - visualize backwards learning
+ - find out how to avoid rk overflow t + dt > nan
 
+'''
 parser = argparse.ArgumentParser()
-parser.add_argument('--adjoint', type=eval, default=False)
+parser.add_argument('--adjoint', type=eval, default=True)
 parser.add_argument('--visualize', type=eval, default=True)
 parser.add_argument('--niters', type=int, default=15)
 parser.add_argument('--lr', type=float, default=0.001)
 parser.add_argument('--gpu', type=int, default=0)
-parser.add_argument('--train_dir', type=str, default='Spike Data/Storage/models')
+parser.add_argument('--train_dir', type=str, default='Storage/models')
 parser.add_argument('--method', type=str, default='dopri5')
 parser.add_argument('--data_type', type=str, default='not_Test_data')
-parser.add_argument('--name_of_run', type=str, default='KL_Loss')
+parser.add_argument('--name_of_run', type=str, default='KL_Loss_adjoint')
 parser.add_argument('--load_data', type=bool, default=True)
 parser.add_argument('--load_model', type=bool, default=False)
 parser.add_argument('--latent_dim', type=int, default=16)
@@ -35,7 +46,7 @@ else:
 noise_std = .3
 device = torch.device('cuda:' + str(args.gpu) if torch.cuda.is_available() else 'cpu')
 
-# generate data
+# get data
 Trajectories, time_series = get_data(name=args.name_of_run,
                                                     load=args.load_data,
                                                     mode=args.data_type,
@@ -55,7 +66,7 @@ params = (list(func.parameters()) + list(dec.parameters()) + list(rec.parameters
 optimizer = optim.Adam(params, lr=args.lr)
 scheduler = StepLR(optimizer, int(args.niters/4), gamma=0.5, verbose=True)
 loss_meter = RunningAverageMeter()
-#loss_function = nn.MSELoss()
+loss_function = nn.MSELoss()
 
 if args.load_model:
     if args.train_dir is not None:
@@ -97,13 +108,14 @@ while proceed:
         pred_z = odeint(func, z0, time_series, method=args.method).permute(1, 0, 2)
         pred_x = dec(pred_z)
 
-        # compute loss
+        ## compute loss
         noise_std_ = torch.zeros(pred_x.size()).to(device) + noise_std
         noise_logvar = 2. * torch.log(noise_std_).to(device)
         logpx = log_normal_pdf(Trajectories, pred_x, noise_logvar).sum(-1).sum(-1)
         pz0_mean = pz0_logvar = torch.zeros(z0.size()).to(device)
         analytic_kl = normal_kl(qz0_mean, qz0_logvar, pz0_mean, pz0_logvar).sum(-1)
         loss = torch.mean(-logpx + analytic_kl, dim=0)
+
         #loss = loss_function(Trajectories, pred_x)
         loss.backward()
         optimizer.step()
@@ -168,11 +180,11 @@ while proceed:
         maxi = np.max(orig_traj)
         plt.ylim(mini - abs(mini) * 0.1, maxi + 0.1 * abs(maxi))
         plt.legend()
-        plt.savefig('Spike Data/Storage/Result/Fit_' + args.name_of_run + '_{}'.format(args.data_resolution) + '.png', dpi=200)
+        plt.savefig('Storage/Result/Fit_' + args.name_of_run + '_{}'.format(args.data_resolution) + '.png', dpi=200)
         plt.figure()
         plt.plot(LOSS)
         plt.yscale('log')
-        plt.savefig('Spike Data/Storage/Loss_curves/Loss_' + args.name_of_run + '_{}'.format(args.data_resolution) + '.png', dpi=200)
+        plt.savefig('Storage/Loss_curves/Loss_' + args.name_of_run + '_{}'.format(args.data_resolution) + '.png', dpi=200)
         print('Saved visualization figure at {}'.format('./vis.png'))
 
         # get input if continue training
