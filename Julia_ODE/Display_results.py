@@ -1,96 +1,163 @@
-
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
+from Methods import *
 import pandas as pd
 import os
-from scipy.fft import rfft
+from Julia_ODE.bptt_master_evaluation.pse import *
+import seaborn as sns
 sns.set_theme()
 
 '''
 Hyperparameter Tuning:
-- grid search combined with Hyperparameter fitting?
-- what quality measure
-- implement model in python or measure in julia?
-- influence of time length of integrator of Neural ODE
+-     loss = ( sum(dt.*λ_hat .- Nlogλ) .+ kld ) ./ N vorzeichen falsch, siehe paper
+- <.  führt zu point process anstatt count process, soll ich das ändern
+- point vs count process, soll ich ground truth in point process umwandeln oder generated in count process
+- falls zweiteres, soll ich den output mit ner activation funciton in den richtigen bereich [0, max(ground_truth)] zwingen?
+haben die nicht gemacht aber ist üblich
 
-- different trials get handeled just as a different time bin
-- why input of Encoder equal to size of Latent space and input forced to this form?
-    u0_m = reshape(p[end-L*N-L*N+1:end-L*N], L, :)
-    u0_s = clamp.(reshape(p[end-L*N+1:end], L, :), -1e8, 0)
-    u0s = u0_m .+ exp.(u0_s) .* randn(size(u0_s))
-Da fuq?
-
+- 1. normal
+- 2. more iterations
+- 3. Bins_50 -> Bins_200 + increases latent dimension in optim.jl
 '''
 
-name_Trial = 'First_try'
-name_generated = 'opt_output_short.pkl'
-name_ground_truth = 'Pickle_LFR_data_1.pkl'
+name_Trial = 'First_long_trial'
+
+name_ground_truth = 'Results_Custom_plnde_1__3/Spike_test.pkl'
+name_generated = 'Results_Custom_plnde_1__3/output_9.pkl'
+name_loss = 'Results_Custom_plnde_1__3/Loss_9.pkl'
+name_iters = 'Results_Custom_plnde_1__3/iters_9.pkl'
 
 if not os.path.exists('Storage/Result/{}'.format(name_Trial)):
     os.mkdir('Storage/Result/{}'.format(name_Trial))
 
-data_ground_truth = pd.read_pickle('Storage/Data/{}'.format(name_ground_truth)) # units x trials x time bins
-data_generated = pd.read_pickle('Storage/Generated/{}'.format(name_generated)) # units x trials x time bins
+data_ground_truth = pd.read_pickle('Storage/Generated/{}'.format(name_ground_truth)) # units x trials x time bins
+data_generated = pd.read_pickle('Storage/Generated/{}'.format(name_generated))*1 # units x trials x time bins
+data_ground_truth = data_ground_truth[:, :, :np.size(data_generated, 2)]
 
-units = np.size(data_generated, 0)
-trials = np.size(data_generated, 1)
-bins = np.size(data_generated, 2)
+data_loss = pd.read_pickle('Storage/Generated/{}'.format(name_loss))
+data_loss = np.nan_to_num(data_loss, 0)
+data_iters = pd.read_pickle('Storage/Generated/{}'.format(name_iters))
 
-# power Spectrum
+units = np.size(data_ground_truth, 0)
+trials = np.size(data_ground_truth, 1)
+bins = np.size(data_ground_truth, 2)
+dt = 200
 
-fourier_transform_ground_truth = np.zeros((units, trials, int(bins/2) + 1 if bins % 2 == 0 else int((bins+1)/2)))
-fourier_transform_generated = np.zeros((units, trials, int(bins/2) + 1 if bins % 2 == 0 else int((bins+1)/2)))
-
-fourier_transform_generated = rfft(data_generated)
-fourier_transform_ground_truth = rfft(data_ground_truth)
-
-# calculated absolut square of complex numbers and calc mean across units and trials
-power_spectrum_generated = np.mean(np.mean(np.abs(fourier_transform_generated)**2, 1), 0)
-power_spectrum_ground_truth = np.mean(np.mean(np.abs(fourier_transform_ground_truth)**2, 1), 0)
-
-# find scale
-
-'''
-variance = np.zeros(201)
-for idx, x in enumerate(range(0, bins, int(bins/200))):
-    var_truth = np.std(power_spectrum_ground_truth[x:x+int(bins/200)])
-    var_gen = np.std(power_spectrum_generated[x:x+int(bins/200)])
-    variance[idx] = np.max([var_gen, var_truth])
-'''
-
-cutoff = 500 #np.min(np.argwhere((variance<10**3)*1))
-
-power_spectrum_generated = power_spectrum_generated[:cutoff]
-power_spectrum_ground_truth = power_spectrum_ground_truth[:cutoff]
-
-cut = 2
-ymin= np.min([np.min(power_spectrum_generated), np.min(power_spectrum_ground_truth)])
-ymax= np.max([np.max(power_spectrum_generated)/cut, np.max(power_spectrum_ground_truth)/cut])
-
-
-plt.figure(figsize=(15,15))
-#plt.plot(power_spectrum_ground_truth)
-plt.plot(power_spectrum_generated)
-plt.ylim(ymin, ymax)
-plt.xlim(0, cutoff)
+# plot loss
+y_min = np.min(data_loss)
+y_max = np.max(data_loss[15:])
+plt.figure(figsize=(12, 12))
+plt.plot(data_loss)
 plt.yscale('log')
+plt.ylim(0, y_max)
+plt.vlines(data_iters, ymin=y_min, ymax=y_max, colors='r', linestyles='dotted')
 plt.show()
-#plt.savefig('Storage/Result/{}/Power_Spectrum'.format(name_Trial))
+
+# plot example trials
+plt.figure(figsize=(10,20))
+
+BINS = np.ones((units, bins))
+BINS[:, :] = np.linspace(0,21000, bins)
 
 
+for i in range(3):
+    rand_trial = np.random.randint(0, trials, 1)[0]
 
-# example trials
-plt.figure(figsize=(15,15))
-rand_unit = np.random.randint(0, units, 6)
-rand_trial = np.random.randint(0, trials, 6)
-rand_bins = np.random.randint(0, bins-3000, 6)
+    data_gen = data_generated[:, rand_trial, :]
+    data_ground = data_ground_truth[:, rand_trial, :]
+    bins_num_gen = np.size(data_generated, 2)
 
+    bins_ground_truth = BINS * (data_ground!=0)
+    bins_generated = BINS[:, :bins_num_gen] * (data_gen[:, :bins_num_gen]!=0)
 
-for i in range(6):
-    plt.subplot(2, 3, i+1)
-    plt.plot(data_generated[rand_unit[i], rand_trial[i], rand_bins[i]:rand_bins[i]+3000])
-    plt.plot(data_ground_truth[rand_unit[i], rand_trial[i], rand_bins[i]:rand_bins[i]+3000])
+    plt.subplot(3, 2, 2*i+1)
+    plt.title('Ground Truth')
+    plt.eventplot(bins_ground_truth, linelengths = 0.8)
+    plt.subplot(3, 2, 2*i+2)
+    plt.title('Generated')
+    plt.eventplot(bins_generated, linelengths=0.8)
 
-plt.savefig('Storage/Result/{}/example_Trials'.format(name_Trial))
+#plt.savefig('Storage/Result/{}/example_Trials'.format(name_Trial))
 plt.show()
+
+# pse analysis
+
+resolution_LFR = 1000
+sigma_cut_off = 0
+width = dt * 5
+
+time_points = np.arange(0, 21000, dt)[:bins]
+STMtx_ground_Truth = np.zeros((units, trials, bins))
+STMtx_generated = np.zeros((units, trials, bins))
+STMtx_ground_Truth[:, :] = time_points
+STMtx_generated[:, :] = time_points
+
+STMtx_ground_Truth *= (data_ground_truth>0)*1
+STMtx_generated *= (data_generated>0)*1
+
+LFR_ground_truth = np.zeros((units, trials, resolution_LFR))
+LFR_generated = np.zeros((units, trials, resolution_LFR))
+
+for i in range(trials):
+    LFR_ground_truth[:, i, :], time = get_LFR(STMtx_ground_Truth[:, i, :], data_ground_truth[:, i, :], sigma_cut_off=sigma_cut_off,
+                                           width_small=width, resolution_LFR=resolution_LFR)
+
+    LFR_generated[:, i, :], time = get_LFR(STMtx_generated[:, i, :], data_generated[:, i, :], sigma_cut_off=sigma_cut_off,
+                                        width_small=width, resolution_LFR=resolution_LFR)
+
+LFR_generated_conc = np.concatenate((LFR_generated[:, 0, :], LFR_generated[:, 1, :]), axis=1)
+for i in range(1, np.size(LFR_generated, 1)-1):
+    LFR_generated_conc = np.concatenate((LFR_generated_conc, LFR_generated[:, i, :]), axis=1)
+
+
+LFR_ground_truth_conc = np.concatenate((LFR_ground_truth[:, 0, :], LFR_ground_truth[:, 1, :]), axis=1)
+for i in range(1, np.size(LFR_ground_truth, 1)-1):
+    LFR_ground_truth_conc = np.concatenate((LFR_ground_truth_conc, LFR_ground_truth[:, i, :]), axis=1)
+'''
+Spectrum_gound_truth = get_average_spectrum(LFR_ground_truth_conc)
+Spectrum_generated = get_average_spectrum(LFR_generated_conc)
+
+plt.plot(Spectrum_gound_truth, label='ground truth')
+plt.plot(Spectrum_generated, label='generated')
+plt.legend()
+plt.show()'''
+
+# mse
+
+def MSE_Loss(x_true, x_gen):
+    return np.mean((x_gen - x_true)**2)
+
+def n_MSE_Loss(x_true, x_gen, n):
+    loss_n_ahead = np.zeros(n)
+    for i in range(1, n):
+        loss_n_ahead[i] = MSE_Loss(x_true[:, :i], x_gen[:, :i])
+    return loss_n_ahead
+
+plt.figure(figsize=(12,12))
+plt.plot(n_MSE_Loss(LFR_ground_truth, LFR_generated, 100))
+plt.show()
+
+# poisson loss n ahead
+
+def poisson_Loss(x_true, x_gen):
+    x_gen = x_gen.flatten()
+    x_true = x_true.flatten()
+    x_true = x_true[x_gen!=0]
+    x_gen = x_gen[x_gen!=0]
+    return np.mean(x_gen - x_true * np.log(x_gen))
+
+def n_poisson_Loss(x_true, x_gen, n):
+    loss_n_ahead = np.zeros(n)
+    for i in range(1, n):
+        loss_n_ahead[i] = poisson_Loss(x_true[:, :i], x_gen[:, :i])
+    return loss_n_ahead
+
+plt.figure(figsize=(12,12))
+plt.plot(n_poisson_Loss(LFR_ground_truth, LFR_generated, 100))
+plt.show()
+
+# klx_gmm
+
+# klx
+
+#plot_kl(LFR_ground_truth_conc[:3, :], LFR_ground_truth_conc[:3, :], 30)
+#klx_gmm = calc_kl_from_data(LFR_ground_truth_conc[:3, :10000], LFR_ground_truth_conc[:3, :10000])
+

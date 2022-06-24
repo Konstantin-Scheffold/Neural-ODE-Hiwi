@@ -4,25 +4,27 @@ import pickle
 import time
 import os
 
-name_Trial = 'First_try'
+name_Trial = 'Bins_15ms'
+count_proc = True
+dt = 15
+max_trial_length = 21000
 
 if not os.path.exists('Storage/Precompiled/{}'.format(name_Trial)):
     os.mkdir('Storage/Precompiled/{}'.format(name_Trial))
 
-for idx, name_input in enumerate(os.listdir(r'Julia_ODE\Storage\Data_Collection')):
+list_of_data = os.listdir(r'Storage\Data\Data_Collection')
+for idx, name_input in enumerate(list_of_data):
     name_input = name_input
     name_output = 'Spikes_{}_precomp'.format(idx+1)
 
-    with open('Storage/Data/{}'.format(name_input), "rb") as f:
+    with open('Storage/Data/Data_Collection/{}'.format(name_input), "rb") as f:
         data = pickle.load(f)
-
     STMtx = data["STMtx"]
     trial_lims = data["trial_lims"]
     num_units = len(STMtx)
     num_trials = len(trial_lims)
 
-    max_trial_length = np.max(trial_lims[:, 1]-trial_lims[:, 0])
-    bins = np.arange(0, max_trial_length, 200)
+    bins = np.arange(0, max_trial_length, dt)
     limits = np.array([bins[:-1], bins[1:]]).T
     output = np.zeros((num_units, num_trials, len(bins)-1))
 
@@ -38,11 +40,14 @@ for idx, name_input in enumerate(os.listdir(r'Julia_ODE\Storage\Data_Collection'
             Is_In[:, :] = Trial
 
             Count = np.sum((Is_In.T < limits[:, 1]) * (Is_In.T > limits[:, 0]), 0)
-            output[k, i, :] = Count
+            if count_proc:
+                output[k, i, :] = Count # make it a count process
+            else:
+                output[k, i, :] = (Count>1)*1 # make it a count process
+
     t_fast_1 = time.time()
 
-    print('Fast geschafft')
-
-    pickle.dump(output, open("{}.pkl".format(name_output), "wb"))
+    pickle.dump(output, open("Storage/Precompiled/{}/{}.pkl".format(name_Trial, name_output), "wb"))
+    print((idx+1)/len(list_of_data) * 100, '%')
 
 
