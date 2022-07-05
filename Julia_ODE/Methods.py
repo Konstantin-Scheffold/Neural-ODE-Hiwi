@@ -35,8 +35,8 @@ def get_LFR(data, weight, resolution_LFR=5000, sigma_cut_off=5, width_small=5,
     # choose local kernel width and trend kernel in seconds
 
 
-    number_units = np.min(np.shape(data))
-    time_length = np.max(data)
+    number_units = data.shape[0] #np.min(np.shape(data))
+    time_length = data.shape[1] #np.max(data)
 
     # calculate local LFR
     LFR_local = np.zeros((number_units, resolution_LFR))
@@ -62,4 +62,69 @@ def get_LFR(data, weight, resolution_LFR=5000, sigma_cut_off=5, width_small=5,
 
     return LFR, x
 
+def poisson_Loss(x_true, x_gen):
+    x_gen = x_gen.flatten()
+    x_true = x_true.flatten()
+    x_true = x_true[x_gen != 0]
+    x_gen = x_gen[x_gen != 0]
+    return np.mean(x_gen - x_true * np.log(x_gen))
 
+def n_poisson_Loss(x_true, x_gen, n):
+    loss_n_ahead = np.zeros(n)
+    for i in range(1, n):
+        loss_n_ahead[i] = poisson_Loss(x_true[:, :i], x_gen[:, :i])
+    return loss_n_ahead
+
+def MSE_Loss(x_true, x_gen):
+    return np.mean((x_gen - x_true) ** 2)
+
+def n_MSE_Loss(x_true, x_gen, n):
+    loss_n_ahead = np.zeros(n)
+    for i in range(1, n):
+        loss_n_ahead[i] = MSE_Loss(x_true[:, :i], x_gen[:, :i])
+    return loss_n_ahead
+
+def find_number(dirs):
+    if len(dirs) == 45:
+        numb_latent_dim = int(dirs[17])
+        numb_layer_size_1 = int(dirs[41])
+        numb_layer_size_2 = int(dirs[43:45])
+    elif len(dirs) == 47:
+        numb_latent_dim = int(dirs[17:19])
+        numb_layer_size_1 = int(dirs[42:44])
+        numb_layer_size_2 = int(dirs[45:47])
+    elif len(dirs) == 46:
+        if int(dirs[17]) == 1:
+            numb_latent_dim = int(dirs[17:19])
+            hint = int(dirs[42])
+        else:
+            numb_latent_dim = int(dirs[17])
+            hint = int(dirs[41])
+        if hint == 8:
+            numb_layer_size_1, numb_layer_size_2 = 8, 22
+        if hint == 1:
+            numb_layer_size_1, numb_layer_size_2 = 16, 36
+        if hint == 2:
+            numb_layer_size_1, numb_layer_size_2 = 24, 50
+        if hint == 3:
+            numb_layer_size_1, numb_layer_size_2 = 32, 64
+
+    return numb_latent_dim, numb_layer_size_1, numb_layer_size_2
+
+def find_number_statistical(dirs):
+
+    numb_layer = int(dirs[6])
+    numb_latent_dim = int(dirs[12])
+    if numb_latent_dim == 1:
+        numb_latent_dim = 16
+
+    return numb_latent_dim, numb_layer
+
+def find_idx(numb_laten_dim, numb_layer):
+    Layer_num = np.array([1, 2, 3, 4])
+    Latent_dim = np.array([2, 4, 8, 16])
+
+    idx_x = np.where(Layer_num == numb_layer)[0][0]
+    idx_y = np.where(Latent_dim == numb_laten_dim)[0][0]
+
+    return idx_x, idx_y

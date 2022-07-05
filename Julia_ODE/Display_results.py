@@ -2,7 +2,10 @@ from Methods import *
 import pandas as pd
 import os
 from Julia_ODE.bptt_master_evaluation.pse import *
+from Julia_ODE.bptt_master_evaluation.klx_gmm import *
+from Julia_ODE.bptt_master_evaluation.klx import *
 import seaborn as sns
+from Dimension_reduction.Methods import PCA_method
 sns.set_theme()
 
 '''
@@ -18,15 +21,12 @@ haben die nicht gemacht aber ist üblich
 - 3. Bins_50 -> Bins_200 + increases latent dimension in optim.jl
 '''
 
-name_Trial = 'First_long_trial'
+name_Trial = 'Test'
 
-name_ground_truth = 'Results_Custom_plnde_1__3/Spike_test.pkl'
-name_generated = 'Results_Custom_plnde_1__3/output_9.pkl'
-name_loss = 'Results_Custom_plnde_1__3/Loss_9.pkl'
-name_iters = 'Results_Custom_plnde_1__3/iters_9.pkl'
-
-if not os.path.exists('Storage/Result/{}'.format(name_Trial)):
-    os.mkdir('Storage/Result/{}'.format(name_Trial))
+name_ground_truth = 'Good_Results/Test/Results_Custom_plnde_1__3/Spike_test.pkl'
+name_generated = 'Good_Results/Test/Results_Custom_plnde_1__3/output_9.pkl'
+name_loss = 'Good_Results/Test/Results_Custom_plnde_1__3/Loss_8.pkl'
+name_iters = 'Good_Results/Test/Results_Custom_plnde_1__3/iters_8.pkl'
 
 data_ground_truth = pd.read_pickle('Storage/Generated/{}'.format(name_ground_truth)) # units x trials x time bins
 data_generated = pd.read_pickle('Storage/Generated/{}'.format(name_generated))*1 # units x trials x time bins
@@ -75,7 +75,6 @@ for i in range(3):
     plt.title('Generated')
     plt.eventplot(bins_generated, linelengths=0.8)
 
-#plt.savefig('Storage/Result/{}/example_Trials'.format(name_Trial))
 plt.show()
 
 # pse analysis
@@ -111,14 +110,14 @@ for i in range(1, np.size(LFR_generated, 1)-1):
 LFR_ground_truth_conc = np.concatenate((LFR_ground_truth[:, 0, :], LFR_ground_truth[:, 1, :]), axis=1)
 for i in range(1, np.size(LFR_ground_truth, 1)-1):
     LFR_ground_truth_conc = np.concatenate((LFR_ground_truth_conc, LFR_ground_truth[:, i, :]), axis=1)
-'''
+
 Spectrum_gound_truth = get_average_spectrum(LFR_ground_truth_conc)
 Spectrum_generated = get_average_spectrum(LFR_generated_conc)
 
 plt.plot(Spectrum_gound_truth, label='ground truth')
 plt.plot(Spectrum_generated, label='generated')
 plt.legend()
-plt.show()'''
+plt.show()
 
 # mse
 
@@ -154,10 +153,11 @@ plt.figure(figsize=(12,12))
 plt.plot(n_poisson_Loss(LFR_ground_truth, LFR_generated, 100))
 plt.show()
 
+Reduced_LFR_ground_truth = PCA_method(LFR_ground_truth_conc, 3)
+Reduced_LFR_generated = PCA_method(LFR_generated_conc, 3)
 # klx_gmm
+plot_kl(Reduced_LFR_generated, Reduced_LFR_ground_truth, 50)
 
 # klx
 
-#plot_kl(LFR_ground_truth_conc[:3, :], LFR_ground_truth_conc[:3, :], 30)
-#klx_gmm = calc_kl_from_data(LFR_ground_truth_conc[:3, :10000], LFR_ground_truth_conc[:3, :10000])
-
+#klx_gmm = calc_kl_from_data(Reduced_LFR_generated[:, :35000], Reduced_LFR_ground_truth[:, :35000])
