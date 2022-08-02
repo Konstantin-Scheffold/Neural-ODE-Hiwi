@@ -7,16 +7,17 @@ import os
 from Dimension_reduction.Methods import PCA_method
 from Julia_ODE.bptt_master_evaluation.klx import *
 import matplotlib.pyplot as plt
+
+
 import seaborn as sns
 sns.set_theme()
 
-NAME_Trail = 'Fast_statistical_search'
+NAME_Trail = 'Fast_statistical_search_actual'
 dt = 50
-y_min = 1000
-y_max = 2000
-mse_n = 100
-pois_n = 75
-pse_length = 67621
+mse_n = 11
+pois_n = 15
+pse_length = 500000
+fuck = 0
 
 if not os.path.exists('Storage/Result/{}'.format(NAME_Trail)):
     os.mkdir('Storage/Result/{}'.format(NAME_Trail))
@@ -82,7 +83,9 @@ for dirs_Main in os.listdir("Storage/Generated/{}".format(NAME_Trail)):
     numb_latent_dim, numb_layer_size_1 = find_number_statistical(dirs_Main)
     idx_x, idx_y = find_idx(numb_latent_dim, numb_layer_size_1)
 
-    LOSS = np.zeros((10, 6012))
+    y_min = 1000
+    y_max = 2000
+    LOSS = np.zeros((10, 6710))
     PSE_GROUND = np.zeros((10, pse_length))
     PSE_GEN = np.zeros((10, pse_length))
     MSE_AHEAD = np.zeros((10, mse_n))
@@ -109,8 +112,11 @@ for dirs_Main in os.listdir("Storage/Generated/{}".format(NAME_Trail)):
             num_params = len(pd.read_pickle('Storage/Generated/{}/{}/{}'.format(NAME_Trail, dirs_Main, name_params)))
 
             # for plot of number of parameter vs Loss plot
+            Layer_num = np.array([1, 2, 3, 4])
+            Latent_dim = np.array([2, 4, 8, 16])
             last_loss = data_loss[-1]
-            Params_loss[0, idx_x + idx_y * 4, idx] = num_params
+            #Params_loss[0, idx_x + idx_y * 4, idx] = num_params
+            Params_loss[0, idx_x + idx_y * 4, idx] = Latent_dim[idx_y]**Layer_num[idx_x]
             Params_loss[1, idx_x + idx_y * 4, idx] = last_loss
             print(num_params, last_loss)
 
@@ -120,8 +126,8 @@ for dirs_Main in os.listdir("Storage/Generated/{}".format(NAME_Trail)):
 
             # loss
             y_min = np.min(np.concatenate((data_loss[data_loss!=0], np.array([y_min]))))
-            if y_min < 1:
-                y_min = 1
+            if y_min < 100:
+                y_min = 100
             y_max = np.max(np.concatenate((data_loss[10:], np.array([y_max]))))
             if y_max > 10**8:
                 y_max = 10**8
@@ -162,9 +168,9 @@ for dirs_Main in os.listdir("Storage/Generated/{}".format(NAME_Trail)):
 
             # pse analysis
             pse_ground = get_average_spectrum(LFR_ground_truth_conc)
-            PSE_GROUND[idx, :pse_ground.shape[1], :pse_ground.shape[2]] = pse_ground
+            PSE_GROUND[idx, :pse_ground.shape[0]] = pse_ground
             pse_gen = get_average_spectrum(LFR_generated_conc)
-            PSE_GEN[idx, :pse_gen.shape[1], :pse_gen.shape[2]] = pse_gen
+            PSE_GEN[idx, :pse_gen.shape[0]] = pse_gen
 
             # mse
             MSE_AHEAD[idx] = n_MSE_Loss(LFR_ground_truth, LFR_generated, mse_n)
@@ -187,7 +193,8 @@ for dirs_Main in os.listdir("Storage/Generated/{}".format(NAME_Trail)):
             #    kl_string = '{:.2f}'.format(kl_value)
             #ax_klx[idx_x, idx_y].set_title('KLx: {} | Difference Heatmap'.format(kl_string))
         else:
-            print('Fuck')
+            fuck +=1
+            print('Fuck', fuck)
 
     #Loss
     error = np.std(LOSS, 0)
@@ -200,21 +207,20 @@ for dirs_Main in os.listdir("Storage/Generated/{}".format(NAME_Trail)):
     ax_loss[idx_x, idx_y].vlines(data_iters, ymin=y_min, ymax=y_max, colors='r', linestyles='dotted')
 
     # PSE
-
     mean_ground = np.mean(PSE_GROUND, 0)
     mean_gen = np.mean(PSE_GEN, 0)
     error_ground = np.std(PSE_GROUND, 0)
     error_gen = np.std(PSE_GEN, 0)
-    error_ground = error_ground[error_ground!=0]
-    error_gen = error_gen[error_gen!=0]
-    mean_ground = mean_ground[error_ground!=0]
-    mean_gen = mean_gen[error_gen!=0]
+    mean_ground = mean_ground[error_ground != 0]
+    mean_gen = mean_gen[error_gen != 0]
+    error_ground = error_ground[error_ground != 0]
+    error_gen = error_gen[error_gen != 0]
 
-    x = np.arange(PSE_GEN.shape[1])
+    x = np.arange(mean_ground.shape[0])
     ax_pse[idx_x, idx_y].fill_between(x, mean_ground - error_ground, mean_ground + error_ground, color='lightskyblue', alpha=0.35)
     ax_pse[idx_x, idx_y].fill_between(x, mean_gen - error_gen, mean_gen + error_gen, color='lightcoral', alpha=0.35)
     ax_pse[idx_x, idx_y].plot(x, mean_ground, label='Ground truth', color='skyblue')
-    ax_pse[idx_x, idx_y].plot(x, mean_gen, label='Generated', color='orange')
+    ax_pse[idx_x, idx_y].plot(x, mean_gen, label='Generated', color='orange', linestyle='-.')
     ax_pse[idx_x, idx_y].legend()
 
     # MSE ahead
@@ -227,25 +233,38 @@ for dirs_Main in os.listdir("Storage/Generated/{}".format(NAME_Trail)):
 
     # POIS ahead
 
+
     mean = np.mean(POIS_AHEAD, 0)
     error = np.std(POIS_AHEAD, 0)
     x = np.arange(POIS_AHEAD.shape[1])
     ax_n_pois[idx_x, idx_y].fill_between(x, mean - error, mean + error, color='lightskyblue', alpha=0.35)
     ax_n_pois[idx_x, idx_y].plot(x, mean, color='black')
 
+Params_loss = np.ma.masked_array(Params_loss)
+Params_loss[0, :, :] = np.ma.masked_array(Params_loss[0, :, :], mask = Params_loss[1, :, :] > 10**5)
+Params_loss[1, :, :] = np.ma.masked_array(Params_loss[1, :, :], mask = Params_loss[1, :, :] > 10**5)
+mean_loss = np.mean(Params_loss[1, :, :], axis=1)
+mean_params = np.mean(Params_loss[0, :, :], axis=1)
+error_loss = np.std(Params_loss[1, :, :], axis=1)
+#error_params = np.std(Params_loss[0, :, :], axis=1)
 
-mean = np.mean(Params_loss[1, :, :], axis=1)
-error = np.std(Params_loss[1, :, :], axis=1)
-x = np.max(Params_loss[0, :, :], axis=1)
-arg_sort = x.argsort()
-x = x[arg_sort]
-mean = mean[arg_sort]
-error = error[arg_sort]
+arg_sort = mean_params.argsort()
+mean_params = mean_params[arg_sort]
+mean_loss = mean_loss[arg_sort]
+error_loss = error_loss[arg_sort]
+#error_params = error_params[arg_sort]
 
-print(Params_loss[1, :, :])
-print(Params_loss[0, :, :])
-ax_loss_params.fill_between(x, mean - error, mean + error, color='lightskyblue', alpha=0.35)
-ax_loss_params.plot(x[x!=0], mean[mean !=0], color='black')
+error_loss = error_loss[mean_loss != 0]
+#error_params = error_params[mean_loss != 0]
+mean_params = mean_params[mean_loss != 0]
+mean_loss = mean_loss[mean_loss != 0]
+
+ax_loss_params.fill_between(mean_params, mean_loss - error_loss, mean_loss + error_loss, color='lightskyblue', alpha=0.35)
+#ax_loss_params.errorbar(mean_params, mean_loss, xerr = error_params, yerr=error_loss, ls='none')
+ax_loss_params.errorbar(mean_params, mean_loss, yerr=error_loss, ls='none')
+ax_loss_params.scatter(mean_params, mean_loss)
+#ax_loss_params.set_yscale('log')
+
 
 fig_loss_params.suptitle('Number_Parameters_vs_Loss')
 fig_loss.suptitle('Loss')
