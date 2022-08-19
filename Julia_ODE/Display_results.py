@@ -21,12 +21,12 @@ haben die nicht gemacht aber ist üblich
 - 3. Bins_50 -> Bins_200 + increases latent dimension in optim.jl
 '''
 
-name_Trial = 'Test'
+name_Trial = 'Sanity_Check'
 
-name_ground_truth = 'Good_Results/Test/Results_Custom_plnde_1__3/Spike_test.pkl'
-name_generated = 'Good_Results/Test/Results_Custom_plnde_1__3/output_9.pkl'
-name_loss = 'Good_Results/Test/Results_Custom_plnde_1__3/Loss_8.pkl'
-name_iters = 'Good_Results/Test/Results_Custom_plnde_1__3/iters_8.pkl'
+name_ground_truth = 'Results_Sanity_Check/spikes_test.pkl'
+name_generated = 'Results_Sanity_Check/output_training.pkl'
+name_loss = 'Results_Sanity_Check/Loss_training.pkl'
+name_iters = 'Results_Sanity_Check/iters_training.pkl'
 
 data_ground_truth = pd.read_pickle('Storage/Generated/{}'.format(name_ground_truth)) # units x trials x time bins
 data_generated = pd.read_pickle('Storage/Generated/{}'.format(name_generated))*1 # units x trials x time bins
@@ -39,12 +39,14 @@ data_iters = pd.read_pickle('Storage/Generated/{}'.format(name_iters))
 units = np.size(data_ground_truth, 0)
 trials = np.size(data_ground_truth, 1)
 bins = np.size(data_ground_truth, 2)
-dt = 200
+dt = 1
 
 # plot loss
+last_loss = data_loss[-1]
 y_min = np.min(data_loss)
 y_max = np.max(data_loss[15:])
 plt.figure(figsize=(12, 12))
+plt.title('Loss Curve converged to {}'.format(last_loss))
 plt.plot(data_loss)
 plt.yscale('log')
 plt.ylim(0, y_max)
@@ -55,7 +57,7 @@ plt.show()
 plt.figure(figsize=(10,20))
 
 BINS = np.ones((units, bins))
-BINS[:, :] = np.linspace(0,21000, bins)
+BINS[:, :] = np.linspace(0, 40000, bins)
 
 
 for i in range(3):
@@ -70,20 +72,20 @@ for i in range(3):
 
     plt.subplot(3, 2, 2*i+1)
     plt.title('Ground Truth')
-    plt.eventplot(bins_ground_truth, linelengths = 0.8)
+    plt.eventplot(bins_ground_truth[40:70, :50], linelengths = 0.8)
     plt.subplot(3, 2, 2*i+2)
     plt.title('Generated')
-    plt.eventplot(bins_generated, linelengths=0.8)
+    plt.eventplot(bins_generated[40:70, :50], linelengths=0.8)
 
 plt.show()
 
 # pse analysis
 
-resolution_LFR = 1000
+resolution_LFR = 5000
 sigma_cut_off = 0
 width = dt * 5
 
-time_points = np.arange(0, 21000, dt)[:bins]
+time_points = np.arange(0, 40000, dt)[:bins]
 STMtx_ground_Truth = np.zeros((units, trials, bins))
 STMtx_generated = np.zeros((units, trials, bins))
 STMtx_ground_Truth[:, :] = time_points
@@ -131,7 +133,8 @@ def n_MSE_Loss(x_true, x_gen, n):
     return loss_n_ahead
 
 plt.figure(figsize=(12,12))
-plt.plot(n_MSE_Loss(LFR_ground_truth, LFR_generated, 100))
+plt.title('MSE N step ahead prediction')
+plt.plot(n_MSE_Loss(LFR_ground_truth, LFR_generated, 25))
 plt.show()
 
 # poisson loss n ahead
@@ -150,14 +153,6 @@ def n_poisson_Loss(x_true, x_gen, n):
     return loss_n_ahead
 
 plt.figure(figsize=(12,12))
-plt.plot(n_poisson_Loss(LFR_ground_truth, LFR_generated, 100))
+plt.title('Poisson N step ahead prediction')
+plt.plot(n_poisson_Loss(LFR_ground_truth, LFR_generated, 20))
 plt.show()
-
-Reduced_LFR_ground_truth = PCA_method(LFR_ground_truth_conc, 3)
-Reduced_LFR_generated = PCA_method(LFR_generated_conc, 3)
-# klx_gmm
-plot_kl(Reduced_LFR_generated, Reduced_LFR_ground_truth, 50)
-
-# klx
-
-#klx_gmm = calc_kl_from_data(Reduced_LFR_generated[:, :35000], Reduced_LFR_ground_truth[:, :35000])

@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 sns.set_theme()
 
-NAME_Trail = 'Fast_statistical_search_actual'
+NAME_Trail = 'Fast_statistical_search'
 dt = 50
 mse_n = 11
 pois_n = 15
@@ -22,12 +22,16 @@ fuck = 0
 if not os.path.exists('Storage/Result/{}'.format(NAME_Trail)):
     os.mkdir('Storage/Result/{}'.format(NAME_Trail))
 
-fig_loss_params, ax_loss_params = plt.subplots(figsize=(10, 10), dpi=100)
+fig_loss_params, ax_loss_params = plt.subplots(1, 2, sharey=True, figsize=(10, 10), dpi=100)
+fig_loss_params_1, ax_loss_params_1 = plt.subplots(figsize=(10, 10), dpi=100)
 fig_loss, ax_loss = plt.subplots(4, 4, sharex=False, sharey=False, figsize=(15,15), dpi=200)
 fig_pse, ax_pse = plt.subplots(4, 4, sharex=False, sharey=False, figsize=(15,15), dpi=200)
 fig_n_mse, ax_n_mse = plt.subplots(4, 4, sharex=False, sharey=False, figsize=(15,15), dpi=200)
 fig_n_pois, ax_n_pois = plt.subplots(4, 4, sharex=False, sharey=False, figsize=(15,15), dpi=200)
-fig_klx, ax_klx = plt.subplots(4, 4, sharex=False, sharey=False, figsize=(15,15), dpi=200)
+
+ax_loss_params[0].set_ylabel("Loss converged too")
+ax_loss_params_1.set_ylabel("Loss converged too")
+ax_loss_params_1.set_xlabel("Number of parameters")
 
 ax_loss[0, 0].set_ylabel("Layer Number 1")
 ax_loss[1, 0].set_ylabel("Layer Number 2")
@@ -37,9 +41,6 @@ ax_loss[3, 0].set_xlabel("Latent dimension 2")
 ax_loss[3, 1].set_xlabel("Latent dimension 4")
 ax_loss[3, 2].set_xlabel("Latent dimension 8")
 ax_loss[3, 3].set_xlabel("Latent dimension 16")
-
-ax_loss_params.set_ylabel("Loss converged too")
-ax_loss_params.set_xlabel("Number of parameters")
 
 ax_pse[0, 0].set_ylabel("Layer Number 1")
 ax_pse[1, 0].set_ylabel("Layer Number 2")
@@ -68,16 +69,10 @@ ax_n_pois[3, 1].set_xlabel("Latent dimension 4")
 ax_n_pois[3, 2].set_xlabel("Latent dimension 8")
 ax_n_pois[3, 3].set_xlabel("Latent dimension 16")
 
-ax_klx[0, 0].set_ylabel("Layer Number 1")
-ax_klx[1, 0].set_ylabel("Layer Number 2")
-ax_klx[2, 0].set_ylabel("Layer Number 3")
-ax_klx[3, 0].set_ylabel("Layer Number 4")
-ax_klx[3, 0].set_xlabel("Latent dimension 2")
-ax_klx[3, 1].set_xlabel("Latent dimension 4")
-ax_klx[3, 2].set_xlabel("Latent dimension 8")
-ax_klx[3, 3].set_xlabel("Latent dimension 16")
-
-Params_loss = np.zeros((2, 16, 10))
+Params_loss_params = np.zeros((16, 10))
+Params_loss_lay = np.zeros((16, 10))
+Params_loss_lat = np.zeros((16, 10))
+Params_loss_loss = np.zeros((16, 10))
 
 for dirs_Main in os.listdir("Storage/Generated/{}".format(NAME_Trail)):
     numb_latent_dim, numb_layer_size_1 = find_number_statistical(dirs_Main)
@@ -85,7 +80,7 @@ for dirs_Main in os.listdir("Storage/Generated/{}".format(NAME_Trail)):
 
     y_min = 1000
     y_max = 2000
-    LOSS = np.zeros((10, 6710))
+    LOSS = np.zeros((10, 6012))
     PSE_GROUND = np.zeros((10, pse_length))
     PSE_GEN = np.zeros((10, pse_length))
     MSE_AHEAD = np.zeros((10, mse_n))
@@ -101,36 +96,31 @@ for dirs_Main in os.listdir("Storage/Generated/{}".format(NAME_Trail)):
 
         data_ground_truth = pd.read_pickle('Storage/Generated/{}/{}/{}'.format(NAME_Trail, dirs_Main, name_ground_truth))  # units x trials x time bins
         data_generated = pd.read_pickle('Storage/Generated/{}/{}/{}'.format(NAME_Trail, dirs_Main, name_generated)) * 1  # units x trials x time bins
+        data_iters = pd.read_pickle('Storage/Generated/{}/{}/{}'.format(NAME_Trail, dirs_Main, name_iters))
 
-        if data_generated.shape == data_ground_truth.shape:
+        if data_generated.shape == data_ground_truth.shape and int(data_iters.max()) == 4708:
+
             print(idx_x + idx_y * 4, idx)
 
             data_ground_truth = data_ground_truth[:, :, :np.size(data_generated, 2)]
             data_loss = pd.read_pickle('Storage/Generated/{}/{}/{}'.format(NAME_Trail, dirs_Main, name_loss))
             data_loss = np.nan_to_num(data_loss, 0)
-            data_iters = pd.read_pickle('Storage/Generated/{}/{}/{}'.format(NAME_Trail, dirs_Main, name_iters))
             num_params = len(pd.read_pickle('Storage/Generated/{}/{}/{}'.format(NAME_Trail, dirs_Main, name_params)))
 
             # for plot of number of parameter vs Loss plot
             Layer_num = np.array([1, 2, 3, 4])
             Latent_dim = np.array([2, 4, 8, 16])
             last_loss = data_loss[-1]
-            #Params_loss[0, idx_x + idx_y * 4, idx] = num_params
-            Params_loss[0, idx_x + idx_y * 4, idx] = Latent_dim[idx_y]**Layer_num[idx_x]
-            Params_loss[1, idx_x + idx_y * 4, idx] = last_loss
-            print(num_params, last_loss)
+            Params_loss_lay[idx_x + idx_y * 4, idx] = Layer_num[idx_x]
+            Params_loss_lat[idx_x + idx_y * 4, idx] = Latent_dim[idx_y]
+            Params_loss_params[idx_x + idx_y * 4, idx] = num_params
+            Params_loss_loss[idx_x + idx_y * 4, idx] = last_loss
 
             units = np.size(data_ground_truth, 0)
             trials = np.size(data_ground_truth, 1)
             bins = np.size(data_ground_truth, 2)
 
             # loss
-            y_min = np.min(np.concatenate((data_loss[data_loss!=0], np.array([y_min]))))
-            if y_min < 100:
-                y_min = 100
-            y_max = np.max(np.concatenate((data_loss[10:], np.array([y_max]))))
-            if y_max > 10**8:
-                y_max = 10**8
             LOSS[idx] = data_loss
 
             # Count process to LFR
@@ -178,32 +168,27 @@ for dirs_Main in os.listdir("Storage/Generated/{}".format(NAME_Trail)):
             # poisson loss n ahead
             POIS_AHEAD[idx] = n_poisson_Loss(LFR_ground_truth, LFR_generated, pois_n)
 
-            # klx_gmm
-            #Reduced_LFR_ground_truth = PCA_method(LFR_ground_truth_conc, 3)
-            #Reduced_LFR_generated = PCA_method(LFR_generated_conc, 3)
-            #print(idx_x, idx_y)
-            #
-            #x_gen = tc.from_numpy(Reduced_LFR_generated.T)
-            #x_true = tc.from_numpy(Reduced_LFR_ground_truth.T)
-            #p_gen, p_true = get_pdf_from_timeseries(x_gen, x_true, 30)
-            #kl_value = kullback_leibler_divergence(p_true, p_gen)
-            #if kl_value is None:
-            #    kl_string = 'None'
-            #else:
-            #    kl_string = '{:.2f}'.format(kl_value)
-            #ax_klx[idx_x, idx_y].set_title('KLx: {} | Difference Heatmap'.format(kl_string))
         else:
             fuck +=1
             print('Fuck', fuck)
 
     #Loss
+
+    LOSS = np.ma.masked_array(LOSS)
+    for i in range(10):
+        if np.percentile(LOSS[i, :], 30) == 0:
+            LOSS[i] = np.ma.masked_array(LOSS[i], mask=np.ones_like(LOSS[i]))
+
     error = np.std(LOSS, 0)
     mean = np.mean(LOSS, 0)
     x = np.arange(LOSS.shape[1])
     ax_loss[idx_x, idx_y].fill_between(x, mean - error, mean + error, color='lightskyblue', alpha=0.35)
     ax_loss[idx_x, idx_y].plot(x, mean, color='black')
     ax_loss[idx_x, idx_y].set_yscale('log')
+    y_min = np.percentile(mean, 0.5)
+    y_max = np.percentile(mean, 99.6)
     ax_loss[idx_x, idx_y].set_ylim(y_min, y_max)
+    data_iters = np.append(data_iters, 5109)
     ax_loss[idx_x, idx_y].vlines(data_iters, ymin=y_min, ymax=y_max, colors='r', linestyles='dotted')
 
     # PSE
@@ -233,49 +218,44 @@ for dirs_Main in os.listdir("Storage/Generated/{}".format(NAME_Trail)):
 
     # POIS ahead
 
-
     mean = np.mean(POIS_AHEAD, 0)
     error = np.std(POIS_AHEAD, 0)
     x = np.arange(POIS_AHEAD.shape[1])
     ax_n_pois[idx_x, idx_y].fill_between(x, mean - error, mean + error, color='lightskyblue', alpha=0.35)
     ax_n_pois[idx_x, idx_y].plot(x, mean, color='black')
 
-Params_loss = np.ma.masked_array(Params_loss)
-Params_loss[0, :, :] = np.ma.masked_array(Params_loss[0, :, :], mask = Params_loss[1, :, :] > 10**5)
-Params_loss[1, :, :] = np.ma.masked_array(Params_loss[1, :, :], mask = Params_loss[1, :, :] > 10**5)
-mean_loss = np.mean(Params_loss[1, :, :], axis=1)
-mean_params = np.mean(Params_loss[0, :, :], axis=1)
-error_loss = np.std(Params_loss[1, :, :], axis=1)
-#error_params = np.std(Params_loss[0, :, :], axis=1)
 
-arg_sort = mean_params.argsort()
-mean_params = mean_params[arg_sort]
-mean_loss = mean_loss[arg_sort]
-error_loss = error_loss[arg_sort]
-#error_params = error_params[arg_sort]
+Lat_Lay_split, only_params = get_params_loss(Params_loss_params, Params_loss_loss, Params_loss_lay, Params_loss_lat)
 
-error_loss = error_loss[mean_loss != 0]
-#error_params = error_params[mean_loss != 0]
-mean_params = mean_params[mean_loss != 0]
-mean_loss = mean_loss[mean_loss != 0]
+mean_params, mean_loss, error_loss = only_params
 
-ax_loss_params.fill_between(mean_params, mean_loss - error_loss, mean_loss + error_loss, color='lightskyblue', alpha=0.35)
-#ax_loss_params.errorbar(mean_params, mean_loss, xerr = error_params, yerr=error_loss, ls='none')
-ax_loss_params.errorbar(mean_params, mean_loss, yerr=error_loss, ls='none')
-ax_loss_params.scatter(mean_params, mean_loss)
-#ax_loss_params.set_yscale('log')
+ax_loss_params_1.fill_between(mean_params, mean_loss - error_loss, mean_loss + error_loss, color='lightskyblue', alpha=0.35)
+ax_loss_params_1.errorbar(mean_params, mean_loss, yerr=error_loss, ls='none')
+ax_loss_params_1.scatter(mean_params, mean_loss, s=40)
+ax_loss_params_1.set_xlabel("Number of Paramters")
+
+mean_params_lay, mean_params_lat, mean_loss, error_loss = Lat_Lay_split
+
+ax_loss_params[0].fill_between(mean_params_lay[0], mean_loss.mean(0) - error_loss.mean(0), mean_loss.mean(0) + error_loss.mean(0), color='lightskyblue', alpha=0.35)
+ax_loss_params[0].errorbar(mean_params_lay[0], mean_loss.mean(0), yerr=error_loss.mean(0), ls='none')
+ax_loss_params[0].scatter(mean_params_lay[0], mean_loss.mean(0), s=20)
+ax_loss_params[0].set_xlabel("Number of Layers")
+ax_loss_params[1].fill_between(mean_params_lat[0], mean_loss.T.mean(0) - error_loss.T.mean(0), mean_loss.T.mean(0) + error_loss.T.mean(0), color='lightskyblue', alpha=0.35)
+ax_loss_params[1].errorbar(mean_params_lat[0], mean_loss.T.mean(0), yerr=error_loss.T.mean(0), ls='none')
+ax_loss_params[1].scatter(mean_params_lat[0], mean_loss.T.mean(0), s=40)
+ax_loss_params[1].set_xlabel("Number of Latent States")
 
 
-fig_loss_params.suptitle('Number_Parameters_vs_Loss')
+fig_loss_params.suptitle('Number Parameters vs Loss')
+fig_loss_params_1.suptitle('Number Parameters vs Loss')
 fig_loss.suptitle('Loss')
 fig_pse.suptitle('PSE')
 fig_n_mse.suptitle('N_MSE')
 fig_n_pois.suptitle('N_POIS')
-#fig_klx.suptitle('KLX')
 
-fig_loss_params.savefig("Storage/Result/{}/Loss_Params".format(NAME_Trail))
+fig_loss_params.savefig("Storage/Result/{}/Loss_Params_split".format(NAME_Trail))
+fig_loss_params_1.savefig("Storage/Result/{}/Loss_Params".format(NAME_Trail))
 fig_loss.savefig("Storage/Result/{}/Loss".format(NAME_Trail))
 fig_pse.savefig("Storage/Result/{}/PSE".format(NAME_Trail))
 fig_n_mse.savefig("Storage/Result/{}/N_MSE".format(NAME_Trail))
 fig_n_pois.savefig("Storage/Result/{}/N_POIS".format(NAME_Trail))
-#fig_klx.savefig("Storage/Result/{}/KLX".format(NAME_Trail))

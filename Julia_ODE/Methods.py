@@ -128,3 +128,89 @@ def find_idx(numb_laten_dim, numb_layer):
     idx_y = np.where(Latent_dim == numb_laten_dim)[0][0]
 
     return idx_x, idx_y
+
+def get_params_loss(PARAMS, LOSS, LAY, LAT):
+
+    loss_masked = np.ma.masked_invalid(LOSS)
+    params_masked = np.ma.masked_invalid(PARAMS)
+    lay_masked = np.ma.masked_invalid(LAY)
+    lat_masked = np.ma.masked_invalid(LAT)
+
+    lay_masked = np.ma.masked_array(lay_masked, mask=loss_masked > 10 ** 5)
+    lat_masked = np.ma.masked_array(lat_masked, mask=loss_masked > 10 ** 5)
+    params_masked = np.ma.masked_array(params_masked, mask=loss_masked > 10 ** 5)
+    loss_masked = np.ma.masked_array(loss_masked, mask=loss_masked > 10 ** 5)
+
+    bins_lay = np.unique(LAY[LAY != 0])
+    bins_lat = np.unique(LAT[LAT != 0])
+
+    mean_loss, mean_params_lay, mean_params_lat, error_loss = np.zeros((4, 4, 4))
+    for i in range(4):
+        mean_params_lat[:, i] = bins_lat[i]
+        bin_losses = np.ma.masked_array(loss_masked, mask=(lat_masked != bins_lat[i]))
+        for j in range(4):
+            mean_params_lay[i, j] = bins_lay[j]
+            bin_losses_2 = np.ma.masked_array(bin_losses, mask=(lay_masked != bins_lay[j]))
+            mean_loss[i, j] = bin_losses_2.mean()
+            error_loss[i, j] = bin_losses_2.std()
+
+    mean_params_lat = np.ma.masked_invalid(mean_params_lat)
+    mean_params_lay = np.ma.masked_invalid(mean_params_lay)
+    mean_loss = np.ma.masked_invalid(mean_loss)
+    error_loss = np.ma.masked_invalid(error_loss)
+
+    Lat_Lay_split = (mean_params_lay, mean_params_lat, mean_loss, error_loss)
+
+    loss_masked = np.ma.masked_array(loss_masked, mask=params_masked == 0)
+    params_masked = np.ma.masked_array(params_masked, mask=params_masked == 0)
+    bins = params_masked.mean(1)
+    num_bins = len(bins)
+
+    mean_loss, mean_params, error_loss = np.zeros((3, num_bins))
+
+    for i in range(num_bins):
+        mean_params[i] = bins[i]
+        bin_losses = loss_masked[i]
+        mean_loss[i] = bin_losses.mean()
+        error_loss[i] = bin_losses.std()
+    # sort the loss values according to the number of parameters
+    arg_sort = mean_params.argsort()
+    mean_params = mean_params[arg_sort]
+    mean_loss = mean_loss[arg_sort]
+    error_loss = error_loss[arg_sort]
+    # remove nan values from the arrays
+    mean_loss = mean_loss[np.invert(np.isnan(mean_params))]
+    error_loss = error_loss[np.invert(np.isnan(mean_params))]
+    mean_params = mean_params[np.invert(np.isnan(mean_params))]
+
+    only_params = mean_params, mean_loss, error_loss
+
+    return Lat_Lay_split, only_params
+
+if __name__ == '__main__':
+
+    import matplotlib.pyplot as plt
+    noise = True
+
+    Params_loss_lay, Params_loss_lat = np.random.randint(1, 5, (2, 16,10))
+    Params_loss_loss = Params_loss_lay * Params_loss_lat * 20
+    if noise:
+        Params_loss_loss = Params_loss_loss + np.random.random((Params_loss_loss.shape))*10
+    mean_params_lay, mean_params_lat, mean_loss, error_loss = get_params_loss(np.zeros((16,10)), Params_loss_loss, Params_loss_lay, Params_loss_lat)
+
+    fig_loss_params, ax_loss_params = plt.subplots(1, 2, sharey=True,  figsize=(10, 10), dpi=100)
+    ax_loss_params[0].set_ylabel("Loss converged too")
+
+    for i in range(4):
+        ax_loss_params[0].fill_between(mean_params_lay[i], mean_loss[i] - error_loss[i], mean_loss[i] + error_loss[i], color='lightskyblue', alpha=0.35)
+        ax_loss_params[0].errorbar(mean_params_lay[i], mean_loss[i], yerr=error_loss[i], ls='none')
+        ax_loss_params[0].scatter(mean_params_lay[i], mean_loss[i], label='Latent dimensions = {}'.format(mean_params_lat[i, 0]))
+        ax_loss_params[0].set_xlabel("Number of Layers")
+
+        ax_loss_params[1].fill_between(mean_params_lat.T[i], mean_loss.T[i] - error_loss.T[i], mean_loss.T[i] + error_loss.T[i], color='lightskyblue', alpha=0.35)
+        ax_loss_params[1].errorbar(mean_params_lat.T[i], mean_loss.T[i], yerr=error_loss.T[i], ls='none')
+        ax_loss_params[1].scatter(mean_params_lat.T[i], mean_loss.T[i], label='Layers = {}'.format(mean_params_lay.T[i, 0]))
+        ax_loss_params[1].set_xlabel("Number of Latent States")
+    ax_loss_params[0].legend()
+    ax_loss_params[1].legend()
+    plt.show()
